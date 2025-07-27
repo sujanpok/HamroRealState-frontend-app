@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import GoogleLoginButton from "./GoogleLoginButton";
 import { setToken } from "../utils/auth";
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = import.meta.env.VITE_AUTH_MICROSRVICES_URL;
 
 export default function RegisterLogin({ onSuccess, defaultMode = "login" }) {
   const [mode, setMode] = useState(defaultMode); // 'login' or 'signup'
