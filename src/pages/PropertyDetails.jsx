@@ -1,176 +1,324 @@
-import React, { useEffect, useState } from 'react';
+/* ─────────────────────────────────────────────────────────
+   PropertyDetails.jsx
+   • Modern gallery (keyboard arrows + swipe via pointer)
+   • Dark-mode ready (Bootstrap + your CSS variables)
+   • Skeleton loader while fetching
+   • Graceful 404 + back navigation
+   • Image / video helpers improved (accepts query strings)
+   • Dummy “Chat” + “Book Visit” buttons
+   • No extra dependencies
+   ───────────────────────────────────────────────────────── */
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
 const API_BASE = import.meta.env.VITE_ROOM_MICROSRVICES_URL;
-const DUMMY_IMAGE = "https://placeholdit.com/600x400/8ebbda/9e9cd8?text=loading...&font=cairo";
+const PLACEHOLDER =
+  'https://placeholdit.com/600x400/8ebbda/9e9cd8?text=loading...&font=cairo';
 
-// Recognize videos by file extension (simple version)
-function isVideo(fileUrl) {
-  return /\.(mp4|webm|ogg)$/i.test(fileUrl);
-}
+/* — helpers — */
+const isVideo = (url = '') =>
+  /\.(mp4|webm|ogg)(\?.*)?$/i.test(url.split('?')[0]);
 
-// Recognize images
-function isImage(fileUrl) {
-  return /\.(jpe?g|png|webp|gif)$/i.test(fileUrl);
-}
+const isImage = (url = '') =>
+  /\.(jpe?g|png|webp|gif|avif)(\?.*)?$/i.test(url.split('?')[0]);
 
-// Handle direct Google Drive for media, as before
-function toDirectDriveUrl(url) {
-  if (!url) return "";
-  const match = url.match(/\/file\/d\/([^/]+)\//);
-  return match ? `https://drive.google.com/uc?export=view&id=${match[1]}` : url;
-}
+const gDriveToDirect = (url = '') => {
+  const m = url.match(/\/file\/d\/([^/]+)\//);
+  return m ? `https://drive.google.com/uc?export=view&id=${m[1]}` : url;
+};
 
+/* — skeleton boxes — */
+const Skeleton = ({ h = 200 }) => (
+  <div
+    className="bg-light-subtle w-100 rounded mb-3 shimmer"
+    style={{ height: h }}
+  />
+);
+
+/* — component — */
 export default function PropertyDetails() {
   const { id } = useParams();
-  const navigate = useNavigate();
-  const [property, setProperty] = useState(null);
-  const [idx, setIdx] = useState(0); // Carousel index
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState(null);
+  const nav = useNavigate();
 
+  const [data, setData] = useState(null);
+  const [ix, setIx] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState(null);
+
+  const swipeRef = useRef(null); // for pointer swipe on mobile
+
+  /* fetch */
   useEffect(() => {
+    let live = true;
     setLoading(true);
     fetch(`${API_BASE}/properties/${id}`)
-      .then(res => { if (!res.ok) throw new Error('Property Not Found'); return res.json(); })
-      .then(setProperty)
-      .catch(err => setFetchError(err.message))
-      .finally(() => setLoading(false));
+      .then((r) => {
+        if (!r.ok) throw new Error('Property not found');
+        return r.json();
+      })
+      .then((json) => live && setData(json))
+      .catch((e) => live && setErr(e.message))
+      .finally(() => live && setLoading(false));
+    return () => (live = false);
   }, [id]);
 
-  if (loading) return (<div className="container py-5 text-center"><span className="spinner-border" /></div>);
-  if (fetchError || !property) return (
-    <div className="container py-5 text-center">
-      <h2 className="mb-3 text-danger">{fetchError || "Property Not Found"}</h2>
-      <button className="btn btn-primary" onClick={() => navigate(-1)}>Back</button>
-    </div>
-  );
+  /* media list (always ≥1) */
+  const media = (data?.image_objs || []).map((o) => ({
+    url: gDriveToDirect(o.file_url),
+    isVideo: isVideo(o.file_url),
+    isImage: isImage(o.file_url)
+  }));
+  if (media.length === 0)
+    media.push({ url: PLACEHOLDER, isImage: true, isVideo: false });
 
-  // Process media for carousel
-  const mediaList = Array.isArray(property.image_objs) && property.image_objs.length
-    ? property.image_objs.map(obj => ({
-        url: toDirectDriveUrl(obj.file_url),
-        isVideo: isVideo(obj.file_url),
-        isImage: isImage(obj.file_url),
-      }))
-    : [{url: DUMMY_IMAGE, isImage: true, isVideo: false}];
+  const show = media[ix];
 
-  const mainMedia = mediaList[idx];
-  const uploaderProfileImg = property.uploader_profile_image || "https://randomuser.me/api/portraits/men/32.jpg";
-  const uploaderName = property.uploader_name || "Unknown";
-  const uploaderEmail = property.uploader_email || "";
-  const uploaderType = property.uploader_type || "";
+  /* keyboard navigation */
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'ArrowRight') next();
+      if (e.key === 'ArrowLeft') prev();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 
+  const prev = () =>
+    setIx((i) => (i === 0 ? media.length - 1 : i - 1));
+  const next = () => setIx((i) => (i + 1) % media.length);
+
+  /* pointer swipe (mobile) */
+  useEffect(() => {
+    const box = swipeRef.current;
+    if (!box) return;
+    let startX = 0;
+    const down = (e) => (startX = e.clientX);
+    const up = (e) => {
+      if (!startX) return;
+      const dx = e.clientX - startX;
+      if (Math.abs(dx) > 60) (dx > 0 ? prev : next)();
+      startX = 0;
+    };
+    box.addEventListener('pointerdown', down);
+    box.addEventListener('pointerup', up);
+    return () => {
+      box.removeEventListener('pointerdown', down);
+      box.removeEventListener('pointerup', up);
+    };
+  }, [media]);
+
+  /* — render — */
+  if (loading)
+    return (
+      <section className="container py-5">
+        <Skeleton h={400} />
+        <Skeleton h={120} />
+      </section>
+    );
+
+  if (err || !data)
+    return (
+      <section className="container py-5 text-center">
+        <h2 className="mb-4 text-danger">{err || 'Not found'}</h2>
+        <button className="btn btn-primary" onClick={() => nav(-1)}>
+          Back
+        </button>
+      </section>
+    );
+
+  const {
+    TITLE,
+    PRICE,
+    LOCATION,
+    CITY,
+    PROPERTY_TYPE,
+    DESCRIPTION,
+    uploader_profile_image,
+    uploader_name,
+    uploader_email,
+    uploader_type
+  } = data;
+
+  const priceText =
+    PRICE && Number(PRICE) > 0
+      ? `$${Number(PRICE).toLocaleString()}`
+      : 'Price on request';
+
+  const uploaderImg =
+    uploader_profile_image ||
+    'https://randomuser.me/api/portraits/men/32.jpg';
+
+  /* ---------------------------------------------------- */
   return (
     <section className="py-5 bg-light">
       <div className="container">
-        {/* GALLERY CAROUSEL */}
-        <div className="row g-4 mb-4 align-items-center">
+        {/* gallery */}
+        <div className="row g-4 mb-4 align-items-start">
           <div className="col-lg-7">
-            {/* Carousel main item */}
-            <div style={{ position: 'relative', maxWidth: 600, margin: "auto" }}>
-              {/* Left arrow */}
-              {mediaList.length > 1 && (
-                <button
-                  style={{ position: 'absolute', left: 0, top: '40%', zIndex: 2 }}
-                  className="btn btn-outline-secondary"
-                  onClick={() => setIdx(idx === 0 ? mediaList.length - 1 : idx - 1)}
-                >&lt;</button>
+            {/* main media */}
+            <div
+              ref={swipeRef}
+              className="position-relative rounded shadow-sm overflow-hidden bg-dark"
+              style={{ maxHeight: 420 }}
+            >
+              {media.length > 1 && (
+                <>
+                  <button
+                    className="btn btn-outline-light position-absolute top-50 start-0 translate-middle-y"
+                    style={{ zIndex: 2 }}
+                    onClick={prev}
+                    aria-label="Previous"
+                  >
+                    ‹
+                  </button>
+                  <button
+                    className="btn btn-outline-light position-absolute top-50 end-0 translate-middle-y"
+                    style={{ zIndex: 2 }}
+                    onClick={next}
+                    aria-label="Next"
+                  >
+                    ›
+                  </button>
+                </>
               )}
-              <div className="bg-dark rounded shadow-sm d-flex align-items-center justify-content-center" style={{ height: 400 }}>
-                {mainMedia.isVideo ? (
-                  <video controls width="100%" style={{ maxHeight: 390, objectFit: 'contain' }}>
-                    <source src={mainMedia.url} />
-                    Your browser does not support the video tag.
-                  </video>
-                ) : (
-                  <img
-                    src={mainMedia.url}
-                    alt={`Property media ${idx+1}`}
-                    className="img-fluid"
-                    style={{ height: 390, objectFit: 'contain', width: 'auto', maxWidth: '100%' }}
-                  />
-                )}
+
+              {show.isVideo ? (
+                <video
+                  controls
+                  className="w-100 d-block"
+                  style={{ maxHeight: 420, objectFit: 'contain' }}
+                >
+                  <source src={show.url} />
+                </video>
+              ) : (
+                <img
+                  src={show.url}
+                  alt={`media-${ix + 1}`}
+                  className="w-100"
+                  style={{ maxHeight: 420, objectFit: 'contain' }}
+                />
+              )}
+            </div>
+
+            {/* thumbs */}
+            {media.length > 1 && (
+              <div className="d-flex flex-wrap gap-2 mt-2 justify-content-center">
+                {media.map((m, i) => (
+                  <div
+                    key={i}
+                    onClick={() => setIx(i)}
+                    role="button"
+                    className={`border ${
+                      i === ix ? 'border-primary' : 'border-light'
+                    } rounded overflow-hidden`}
+                    style={{ width: 72, height: 54, cursor: 'pointer' }}
+                  >
+                    {m.isVideo ? (
+                      <video
+                        src={m.url}
+                        width="100%"
+                        height="100%"
+                        style={{ objectFit: 'cover' }}
+                        muted
+                      />
+                    ) : (
+                      <img
+                        src={m.url}
+                        alt=""
+                        width="100%"
+                        height="100%"
+                        style={{ objectFit: 'cover' }}
+                      />
+                    )}
+                  </div>
+                ))}
               </div>
-              {/* Right arrow */}
-              {mediaList.length > 1 && (
-                <button
-                  style={{ position: 'absolute', right: 0, top: '40%', zIndex: 2 }}
-                  className="btn btn-outline-secondary"
-                  onClick={() => setIdx((idx + 1) % mediaList.length)}
-                >&gt;</button>
-              )}
-            </div>
-            {/* Thumbnails for preview below carousel */}
-            <div className="d-flex mt-2 justify-content-center">
-              {mediaList.map((m, i) => (
-                <div
-                  key={i}
-                  className={`mx-1 border ${i === idx ? 'border-primary' : 'border-light'}`}
-                  onClick={() => setIdx(i)}
-                  style={{ width: 64, height: 48, cursor: "pointer", overflow: "hidden", borderRadius: 6 }}>
-                  {m.isVideo ? (
-                    <video src={m.url} width="100%" height="100%" style={{ objectFit: 'cover' }} />
-                  ) : (
-                    <img src={m.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  )}
-                </div>
-              ))}
-            </div>
+            )}
           </div>
 
-          {/* Main Info */}
+          {/* summary */}
           <div className="col-lg-5">
-            <h1 className="fw-bold mb-2">{property.TITLE}</h1>
-            <h3 className="text-primary mb-2">{property.PRICE && Number(property.PRICE) > 0 ? `$${Number(property.PRICE).toLocaleString()}` : "Price on request"}</h3>
+            <h1 className="fw-bold">{TITLE}</h1>
+            <h3 className="text-primary mb-3">{priceText}</h3>
+
             <p className="mb-2 text-muted">
-              <i className="bi bi-geo-alt me-2"></i>
-              {property.LOCATION}, {property.CITY}
+              <i className="bi bi-geo-alt me-1" /> {LOCATION}, {CITY}
             </p>
-            <p className="mb-2"><b>Type:</b> {property.PROPERTY_TYPE}</p>
-            <button className="btn btn-primary me-2">Book a Visit</button>
-            <button className="btn btn-outline-secondary" onClick={() => navigate(-1)}>Back to Listings</button>
+            <p className="mb-4">
+              <strong>Type:</strong> {PROPERTY_TYPE}
+            </p>
+
+            <div className="d-flex gap-2 flex-wrap">
+              <button className="btn btn-primary">Book a Visit</button>
+              <button
+                className="btn btn-outline-secondary"
+                onClick={() => nav(-1)}
+              >
+                Back to Listings
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Description & Uploader/Agent */}
+        {/* description & uploader */}
         <div className="row g-4">
           <div className="col-lg-8">
-            <div className="card shadow-sm mb-4">
+            <div className="card shadow-sm">
               <div className="card-body">
                 <h4 className="fw-bold mb-3">Property Description</h4>
-                <p className="mb-0">{property.DESCRIPTION || "No property description available."}</p>
+                <p className="mb-0">
+                  {DESCRIPTION || 'No description provided.'}
+                </p>
               </div>
             </div>
           </div>
+
           <div className="col-lg-4">
-            <div className="card shadow-sm mb-4">
-              <div className="card-body text-center">
+            <div className="card shadow-sm text-center">
+              <div className="card-body">
                 <img
-                  src={uploaderProfileImg}
-                  alt={uploaderName}
+                  src={uploaderImg}
+                  alt={uploader_name || 'uploader'}
                   className="rounded-circle mb-3"
-                  style={{ width: 80, height: 80, objectFit: 'cover' }}
+                  width={90}
+                  height={90}
+                  style={{ objectFit: 'cover' }}
                 />
-                <h5 className="fw-bold mb-1">{uploaderName}</h5>
-                <div className="mb-2 text-muted">{uploaderType}</div>
-                <p>
-                  <i className="bi bi-envelope me-1"></i>
-                  {uploaderEmail
-                    ? (<a href={`mailto:${uploaderEmail}`}>{uploaderEmail}</a>)
-                    : "Email not provided"}
+                <h5 className="fw-bold mb-1">
+                  {uploader_name || 'Unknown'}
+                </h5>
+                <div className="text-muted mb-2">
+                  {uploader_type || 'User'}
+                </div>
+
+                <p className="small mb-3">
+                  <i className="bi bi-envelope me-1" />
+                  {uploader_email ? (
+                    <a href={`mailto:${uploader_email}`}>
+                      {uploader_email}
+                    </a>
+                  ) : (
+                    'Email not available'
+                  )}
                 </p>
+
                 <button
                   className="btn btn-outline-primary btn-sm w-100 mb-2"
-                  onClick={() => window.open(`mailto:${uploaderEmail}`)}
-                  disabled={!uploaderEmail}
-                >Email</button>
-                {/* Example Chat Button – adapt trigger as needed */}
+                  onClick={() =>
+                    uploader_email && window.open(`mailto:${uploader_email}`)
+                  }
+                  disabled={!uploader_email}
+                >
+                  Email
+                </button>
                 <button
                   className="btn btn-primary btn-sm w-100"
-                  onClick={() => alert("Chat feature not yet implemented!")}
-                  // TODO: Link to chat or open chat modal
-                >Chat</button>
+                  onClick={() =>
+                    alert('Chat feature coming soon (demo button)')
+                  }
+                >
+                  Chat
+                </button>
               </div>
             </div>
           </div>
@@ -179,3 +327,7 @@ export default function PropertyDetails() {
     </section>
   );
 }
+
+/*  OPTIONAL: skeleton shimmer CSS  — add once globally
+
+*/

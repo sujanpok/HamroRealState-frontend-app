@@ -11,46 +11,109 @@ const sidebarMenu = [
   { label: 'Add Property', icon: 'bi-plus-square', to: '/add-property' },
 ];
 
-export default function Sidebar({ onLogout }) {
+export default function Sidebar({ onLogout, user }) {
   const location = useLocation();
 
+  const handleLogout = () => {
+    if (onLogout) {
+      onLogout();
+    }
+  };
+
   return (
-    <aside
-      className="bg-dark text-white d-flex flex-column d-none d-md-flex"
-      style={{
-        minHeight: '100vh',
-        width: 240,
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        zIndex: 1040,
-        borderRight: '1px solid #222',
-      }}
-    >
-      <div className="d-flex flex-column flex-grow-1 p-3">
-        <h4 className="fw-bold mb-4">Hamro Real State</h4>
-        <ul className="nav nav-pills flex-column mb-auto">
-          {sidebarMenu.map((item) => (
-            <li className="nav-item mb-2" key={item.label}>
-              <Link
-                to={item.to}
-                className={`nav-link d-flex align-items-center ${
-                  location.pathname === item.to
-                    ? 'active bg-primary text-white'
-                    : 'text-light'
-                }`}
-                style={{ borderRadius: 6 }}
-              >
-                <i className={`bi ${item.icon} me-2`}></i>
-                {item.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
-        <div className="mt-auto pt-3">
-          <button className="btn btn-outline-light w-100" onClick={onLogout}>
-            <i className="bi bi-box-arrow-right me-2"></i> Logout
-          </button>
+    <aside className="sidebar-container">
+      <div className="sidebar-content">
+        {/* Sidebar Header */}
+        <div className="sidebar-header">
+          <Link to="/dashboard" className="sidebar-brand">
+            <i className="bi bi-house-door-fill text-primary"></i>
+            <span className="sidebar-brand-text">Nepal Room Hub</span>
+          </Link>
+        </div>
+
+        {/* Navigation Menu */}
+        <nav className="sidebar-nav">
+          <div className="nav-section">
+            <div className="nav-section-title">Main Menu</div>
+            <ul className="nav-list">
+              {sidebarMenu.map(({ label, icon, to }) => {
+                const isActive = location.pathname === to || 
+                  (to !== '/dashboard' && location.pathname.startsWith(to + '/'));
+                
+                return (
+                  <li key={to} className="nav-item">
+                    <Link
+                      to={to}
+                      className={`nav-link ${isActive ? 'active' : ''}`}
+                    >
+                      <div className="nav-link-content">
+                        <div className="nav-icon-container">
+                          <i className={`bi ${icon} nav-icon`}></i>
+                        </div>
+                        <span className="nav-text">{label}</span>
+                        {isActive && <div className="nav-indicator"></div>}
+                      </div>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </nav>
+
+        {/* Quick Actions
+        <div className="quick-actions">
+          <Link to="/add-property" className="btn btn-primary quick-action-btn w-100">
+            <i className="bi bi-plus-circle me-2"></i>
+            Add Property
+          </Link>
+        </div> */}
+
+        {/* User Card & Logout */}
+        <div className="sidebar-footer">
+          {user && (
+            <div className="user-card mb-3">
+              <div className="user-info">
+                <div className="user-avatar">
+                  <img 
+                    src={`https://ui-avatars.com/api/?name=${encodeURIComponent(
+                      user.FULL_NAME || user.full_name || 'User'
+                    )}&background=007bff&color=fff`}
+                    alt="User Avatar"
+                    onError={(e) => {
+                      e.target.src = `https://ui-avatars.com/api/?name=User&background=007bff&color=fff`;
+                    }}
+                  />
+                  <div className="user-status online"></div>
+                </div>
+                <div className="user-details">
+                  <div className="user-name">
+                    {user.FULL_NAME || user.full_name || 'User'}
+                  </div>
+                  <div className="user-role">Property Owner</div>
+                </div>
+              </div>
+              <div className="user-actions">
+                <button 
+                  onClick={handleLogout}
+                  className="btn btn-sm btn-outline-danger"
+                  title="Logout"
+                >
+                  <i className="bi bi-box-arrow-right"></i>
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {!user && (
+            <button 
+              onClick={handleLogout}
+              className="btn btn-outline-danger w-100"
+            >
+              <i className="bi bi-box-arrow-right me-2"></i>
+              Logout
+            </button>
+          )}
         </div>
       </div>
     </aside>

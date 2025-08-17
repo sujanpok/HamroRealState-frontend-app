@@ -1,156 +1,318 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
+import { Link } from 'react-router-dom';
 
 const allProperties = [
   {
     id: 1,
-    image: "https://images.unsplash.com/photo-1460518451285-97b6aa326961?auto=format&fit=crop&w=400&q=80",
-    title: "Casa Lomas de Machalí Machas",
+    image: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&h=300&fit=crop",
+    title: "Cozy Room in Thamel, Kathmandu",
     postingDate: "March 22, 2024",
-    price: "$4,498",
+    price: "NPR 8,500",
     status: "Pending",
+    views: 234,
+    inquiries: 12,
+    type: "Single Room"
   },
   {
     id: 2,
-    image: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80",
-    title: "Casa Lomas de Machalí Machas",
+    image: "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=400&h=300&fit=crop",
+    title: "Modern Apartment in Lalitpur",
     postingDate: "March 22, 2024",
-    price: "$5,007",
+    price: "NPR 15,000",
     status: "Approved",
+    views: 456,
+    inquiries: 23,
+    type: "Apartment"
   },
   {
     id: 3,
-    image: "https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?auto=format&fit=crop&w=400&q=80",
-    title: "Casa Lomas de Machalí Machas",
+    image: "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&h=300&fit=crop",
+    title: "Single Room near Ratna Park",
     postingDate: "March 22, 2024",
-    price: "$5,329",
-    status: "Sold",
+    price: "NPR 6,000",
+    status: "Rented",
+    views: 189,
+    inquiries: 8,
+    type: "Single Room"
   },
   {
     id: 4,
-    image: "https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?auto=format&fit=crop&w=400&q=80",
-    title: "Casa Lomas de Machalí Machas",
+    image: "https://images.unsplash.com/photo-1556761175-b413da4baf72?w=400&h=300&fit=crop",
+    title: "Shared Room in New Baneshwor",
     postingDate: "March 22, 2024",
-    price: "$3,882",
+    price: "NPR 4,500",
     status: "Pending",
+    views: 123,
+    inquiries: 5,
+    type: "Shared Room"
   },
   {
     id: 5,
-    image: "https://images.unsplash.com/photo-1460518451285-97b6aa326961?auto=format&fit=crop&w=400&q=80",
-    title: "Casa Lomas de Machalí Machas",
+    image: "https://images.unsplash.com/photo-1484101403633-562f891dc89a?w=400&h=300&fit=crop",
+    title: "Studio Apartment in Pokhara",
     postingDate: "March 22, 2024",
-    price: "$2,895",
-    status: "Sold",
+    price: "NPR 12,000",
+    status: "Rented",
+    views: 78,
+    inquiries: 3,
+    type: "Studio"
   },
 ];
 
-const statusOptions = ["All", "Pending", "Approved", "Sold"];
+const statusOptions = ["All", "Pending", "Approved", "Rented"];
+const typeOptions = ["All Types", "Single Room", "Shared Room", "Apartment", "Studio"];
 
 export default function MyProperties() {
   const [status, setStatus] = useState("All");
+  const [type, setType] = useState("All Types");
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("newest");
 
-  const filtered = allProperties.filter(
-    (p) =>
+  const filteredAndSortedProperties = useMemo(() => {
+    let filtered = allProperties.filter((p) =>
       (status === "All" || p.status === status) &&
+      (type === "All Types" || p.type === type) &&
       p.title.toLowerCase().includes(search.toLowerCase())
-  );
+    );
+
+    // Sort properties
+    switch (sortBy) {
+      case 'newest':
+        return filtered.sort((a, b) => new Date(b.postingDate) - new Date(a.postingDate));
+      case 'oldest':
+        return filtered.sort((a, b) => new Date(a.postingDate) - new Date(b.postingDate));
+      case 'price-high':
+        return filtered.sort((a, b) => parseInt(b.price.replace(/[^\d]/g, '')) - parseInt(a.price.replace(/[^\d]/g, '')));
+      case 'price-low':
+        return filtered.sort((a, b) => parseInt(a.price.replace(/[^\d]/g, '')) - parseInt(b.price.replace(/[^\d]/g, '')));
+      case 'views':
+        return filtered.sort((a, b) => b.views - a.views);
+      default:
+        return filtered;
+    }
+  }, [status, type, search, sortBy]);
+
+  const getStatusBadge = (status) => {
+    const statusConfig = {
+      'Pending': { class: 'warning', icon: 'bi-clock' },
+      'Approved': { class: 'success', icon: 'bi-check-circle' },
+      'Rented': { class: 'info', icon: 'bi-house-check' }
+    };
+    
+    const config = statusConfig[status] || { class: 'secondary', icon: 'bi-question' };
+    
+    return (
+      <span className={`badge bg-${config.class} d-inline-flex align-items-center gap-1`}>
+        <i className={`bi ${config.icon}`}></i>
+        {status}
+      </span>
+    );
+  };
 
   return (
-    <div className="card shadow-sm mb-4">
-      <div className="card-header bg-primary text-white d-flex flex-column flex-md-row align-items-md-center justify-content-between">
-        <h5 className="mb-2 mb-md-0">My Properties</h5>
-        <div className="d-flex flex-wrap gap-2">
-          <select
-            className="form-select form-select-sm"
-            style={{ width: 130 }}
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-          >
-            {statusOptions.map((opt) => (
-              <option value={opt} key={opt}>
-                {opt === "All" ? "Post Status: All" : opt}
-              </option>
-            ))}
-          </select>
-          <input
-            type="text"
-            className="form-control form-control-sm"
-            style={{ width: 180 }}
-            placeholder="Search by title"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+    <div className="my-properties-container fade-in-up">
+      {/* Header */}
+      <div className="properties-header mb-4">
+        <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
+          <div>
+            <h1 className="h2 fw-bold text-gradient mb-2">My Room Listings</h1>
+            <p className="text-muted mb-0">Manage and track your room listings</p>
+          </div>
+          <Link to="/add-property" className="btn btn-primary btn-animated">
+            <i className="bi bi-plus-lg me-2"></i>Add New Room
+          </Link>
         </div>
       </div>
-      <div className="card-body p-0">
-        <div className="table-responsive">
-          <table className="table align-middle mb-0">
-            <thead className="table-light">
-              <tr>
-                <th scope="col">Listing</th>
-                <th scope="col">Status</th>
-                <th scope="col">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={3} className="text-center py-4 text-muted">
-                    No properties found.
-                  </td>
-                </tr>
-              )}
-              {filtered.map((property) => (
-                <tr key={property.id}>
-                  <td>
-                    <div className="d-flex align-items-center">
+
+      {/* Filters */}
+      <div className="properties-filters mb-4">
+        <div className="filter-card p-3 rounded-3">
+          <div className="row g-3 align-items-end">
+            <div className="col-md-3">
+              <label className="form-label fw-semibold">
+                <i className="bi bi-search me-1"></i>Search Rooms
+              </label>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Search by title or location..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div className="col-md-2">
+              <label className="form-label fw-semibold">
+                <i className="bi bi-funnel me-1"></i>Status
+              </label>
+              <select
+                className="form-select"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+              >
+                {statusOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="col-md-2">
+              <label className="form-label fw-semibold">
+                <i className="bi bi-house me-1"></i>Type
+              </label>
+              <select
+                className="form-select"
+                value={type}
+                onChange={(e) => setType(e.target.value)}
+              >
+                {typeOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="col-md-2">
+              <label className="form-label fw-semibold">
+                <i className="bi bi-sort-down me-1"></i>Sort By
+              </label>
+              <select
+                className="form-select"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+              >
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="price-high">Price: High to Low</option>
+                <option value="price-low">Price: Low to High</option>
+                <option value="views">Most Viewed</option>
+              </select>
+            </div>
+            <div className="col-md-3">
+              <div className="d-flex gap-2">
+                <button className="btn btn-outline-secondary" onClick={() => {
+                  setStatus("All");
+                  setType("All Types");
+                  setSearch("");
+                  setSortBy("newest");
+                }}>
+                  <i className="bi bi-arrow-clockwise me-1"></i>Reset
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Properties Grid/List */}
+      {filteredAndSortedProperties.length === 0 ? (
+        <div className="no-properties text-center py-5">
+          <div className="no-properties-icon mb-3">
+            <i className="bi bi-house-slash fs-1 text-muted"></i>
+          </div>
+          <h4 className="text-muted mb-3">No rooms found</h4>
+          <p className="text-muted mb-4">
+            {search || status !== "All" || type !== "All Types" 
+              ? "Try adjusting your filters to see more results." 
+              : "You haven't listed any rooms yet."}
+          </p>
+          <Link to="/add-property" className="btn btn-primary btn-animated">
+            <i className="bi bi-plus-lg me-2"></i>Add Your First Room
+          </Link>
+        </div>
+      ) : (
+        <>
+          {/* Results Summary */}
+          <div className="results-summary mb-3">
+            <p className="text-muted mb-0">
+              Showing {filteredAndSortedProperties.length} of {allProperties.length} rooms
+            </p>
+          </div>
+
+          {/* Properties Grid */}
+          <div className="properties-grid">
+            <div className="row g-4">
+              {filteredAndSortedProperties.map((property, index) => (
+                <div key={property.id} className="col-lg-4 col-md-6 fade-in-up" style={{ animationDelay: `${index * 0.1}s` }}>
+                  <div className="property-card h-100 hover-lift">
+                    <div className="property-image-container">
                       <img
                         src={property.image}
                         alt={property.title}
-                        className="rounded me-3"
-                        style={{ width: 60, height: 40, objectFit: "cover" }}
+                        className="property-image"
                       />
-                      <div>
-                        <div className="fw-bold">{property.title}</div>
-                        <div className="small text-muted">
-                          Posting date: {property.postingDate}
-                          <span className="ms-2 text-primary">{property.price}</span>
+                      <div className="property-overlay">
+                        {getStatusBadge(property.status)}
+                        <div className="property-actions">
+                          <button className="btn btn-light btn-sm" title="Edit">
+                            <i className="bi bi-pencil"></i>
+                          </button>
+                          <button className="btn btn-light btn-sm" title="Duplicate">
+                            <i className="bi bi-files"></i>
+                          </button>
+                          <button className="btn btn-danger btn-sm" title="Delete">
+                            <i className="bi bi-trash"></i>
+                          </button>
                         </div>
                       </div>
                     </div>
-                  </td>
-                  <td>
-                    {property.status === "Pending" && (
-                      <span className="badge bg-warning text-dark">Pending</span>
-                    )}
-                    {property.status === "Approved" && (
-                      <span className="badge bg-success">Approved</span>
-                    )}
-                    {property.status === "Sold" && (
-                      <span className="badge bg-secondary">Sold</span>
-                    )}
-                  </td>
-                  <td>
-                    <button className="btn btn-sm btn-outline-primary me-1">Edit</button>
-                    <button className="btn btn-sm btn-outline-secondary me-1">Sold</button>
-                    <button className="btn btn-sm btn-outline-danger">Delete</button>
-                  </td>
-                </tr>
+                    
+                    <div className="property-content p-3">
+                      <div className="d-flex justify-content-between align-items-start mb-2">
+                        <h5 className="property-title mb-0">{property.title}</h5>
+                        <span className="property-type-badge">{property.type}</span>
+                      </div>
+                      
+                      <div className="property-price mb-2">
+                        <span className="fw-bold text-primary">{property.price}</span>
+                        <small className="text-muted">/month</small>
+                      </div>
+
+                      <div className="property-stats mb-3">
+                        <div className="row g-2 text-center">
+                          <div className="col-4">
+                            <div className="stat-item">
+                              <i className="bi bi-eye text-primary"></i>
+                              <small className="d-block">{property.views} views</small>
+                            </div>
+                          </div>
+                          <div className="col-4">
+                            <div className="stat-item">
+                              <i className="bi bi-chat-dots text-success"></i>
+                              <small className="d-block">{property.inquiries} inquiries</small>
+                            </div>
+                          </div>
+                          <div className="col-4">
+                            <div className="stat-item">
+                              <i className="bi bi-calendar text-info"></i>
+                              <small className="d-block">Posted {property.postingDate}</small>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="property-actions-bottom d-flex gap-2">
+                        <Link 
+                          to={`/property/${property.id}`}
+                          className="btn btn-outline-primary btn-sm flex-fill"
+                        >
+                          <i className="bi bi-eye me-1"></i>View
+                        </Link>
+                        <button className="btn btn-outline-secondary btn-sm">
+                          <i className="bi bi-pencil"></i>
+                        </button>
+                        <button className="btn btn-outline-danger btn-sm">
+                          <i className="bi bi-trash"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
-        {/* Pagination (demo only) */}
-        <nav className="mt-3">
-          <ul className="pagination justify-content-end mb-0">
-            <li className="page-item"><button className="page-link">1</button></li>
-            <li className="page-item"><button className="page-link">2</button></li>
-            <li className="page-item"><button className="page-link">3</button></li>
-            <li className="page-item"><button className="page-link">4</button></li>
-            <li className="page-item disabled"><span className="page-link">...</span></li>
-          </ul>
-        </nav>
-      </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

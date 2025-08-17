@@ -1,15 +1,30 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { removeToken } from '../utils/auth';
+import { useTheme } from '../App';
 
 export default function Header({ user, onLogout, onAuthOpen }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef();
   const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
+
+  // Debug: Track user prop changes
+  useEffect(() => {
+    console.log('🔍 Header: User prop received:', user);
+    console.log('🔍 Header: User exists:', !!user);
+    if (user) {
+      console.log('🔍 Header: User details:', {
+        name: user.FULL_NAME || user.full_name,
+        email: user.email,
+        id: user.id
+      });
+    }
+  }, [user]);
 
   // Close dropdown when clicking outside
-  React.useEffect(() => {
+  useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setDropdownOpen(false);
@@ -20,121 +35,176 @@ export default function Header({ user, onLogout, onAuthOpen }) {
   }, []);
 
   const handleLogout = () => {
+    console.log('🔍 Header: Logout button clicked');
     removeToken();
     onLogout && onLogout();
     navigate('/');
   };
 
+  const handleAuthOpen = (mode) => {
+    console.log('🔍 Header: Opening auth modal:', mode);
+    onAuthOpen(mode);
+  };
+
+  console.log('🔍 Header: Rendering - showing user menu:', !!user);
+
   return (
-    <nav className="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
+    <nav className="navbar navbar-expand-lg fixed-top">
       <div className="container">
-        <Link className="navbar-brand fw-bold" to="/">Hamro Real State</Link>
+        {/* Brand */}
+        <Link className="navbar-brand brand-logo" to="/">
+          <i className="bi bi-house-heart-fill text-primary me-2"></i>
+          <span className="fw-bold">Nepal Room Hub</span>
+        </Link>
+
+        {/* Theme Toggle */}
+        <button 
+          className="theme-toggle-btn me-3"
+          onClick={toggleTheme}
+          aria-label="Toggle theme"
+        >
+          <i className={`bi ${theme === 'light' ? 'bi-moon-stars' : 'bi-sun'} transition-all`}></i>
+        </button>
+
+        {/* Mobile menu button */}
         <button
-          className="navbar-toggler"
+          className="navbar-toggler border-0"
           type="button"
           onClick={() => setMenuOpen(!menuOpen)}
           aria-controls="navbarNav"
           aria-expanded={menuOpen}
           aria-label="Toggle navigation"
         >
-          <span className="navbar-toggler-icon"></span>
+          <i className={`bi ${menuOpen ? 'bi-x' : 'bi-list'} fs-4 transition-transform`}></i>
         </button>
-        <div className={`collapse navbar-collapse${menuOpen ? ' show' : ''}`} id="navbarNav">
-          <ul className="navbar-nav ms-auto align-items-lg-center">
-            {/* Always visible links */}
+
+        {/* Navigation */}
+        <div className={`collapse navbar-collapse ${menuOpen ? 'show' : ''}`} id="navbarNav">
+          <ul className="navbar-nav me-auto mb-2 mb-lg-0">
             <li className="nav-item">
-              <Link className="nav-link" to="/" onClick={() => setMenuOpen(false)}>Home</Link>
+              <Link 
+                className="nav-link nav-link-hover" 
+                to="/" 
+                onClick={() => setMenuOpen(false)}
+              >
+                <i className="bi bi-house me-1"></i>Home
+              </Link>
             </li>
-                        {!user && (
-            <>
-              <li className="nav-item">
-                <Link className="nav-link" to="/about" onClick={() => setMenuOpen(false)}>About</Link>
-              </li>
-              <li className="nav-item">
-                <Link className="nav-link" to="/contact" onClick={() => setMenuOpen(false)}>Contact</Link>
-              </li>
-            </>
-                        )}
-            {/* User dropdown or Register/Login */}
+            
+            <li className="nav-item">
+              <Link 
+                className="nav-link nav-link-hover" 
+                to="/properties" 
+                onClick={() => setMenuOpen(false)}
+              >
+                <i className="bi bi-grid-3x3-gap me-1"></i>All Rooms
+              </Link>
+            </li>
+
+            {!user && (
+              <>
+                <li className="nav-item">
+                  <Link 
+                    className="nav-link nav-link-hover" 
+                    to="/about" 
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <i className="bi bi-info-circle me-1"></i>About Us
+                  </Link>
+                </li>
+                <li className="nav-item">
+                  <Link 
+                    className="nav-link nav-link-hover" 
+                    to="/contact" 
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <i className="bi bi-telephone me-1"></i>Contact
+                  </Link>
+                </li>
+              </>
+            )}
+          </ul>
+
+          <ul className="navbar-nav">
             {user ? (
               <>
                 <li className="nav-item">
-                  <Link className="nav-link" to="/dashboard" onClick={() => setMenuOpen(false)}>
-                    Dashboard
+                  <Link 
+                    className="nav-link nav-link-hover" 
+                    to="/dashboard"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <i className="bi bi-speedometer2 me-1"></i>Dashboard
                   </Link>
                 </li>
+                
                 <li className="nav-item dropdown" ref={dropdownRef}>
                   <button
-                    className="btn btn-light d-flex align-items-center border-0 ms-2"
-                    style={{ minWidth: 0 }}
-                    onClick={() => setDropdownOpen((v) => !v)}
+                    className="nav-link dropdown-toggle border-0 bg-transparent user-dropdown"
+                    onClick={() => setDropdownOpen(v => !v)}
                     aria-expanded={dropdownOpen}
                   >
-                    <img
-                      src={user.profile_image || user.avatar || 'https://randomuser.me/api/portraits/men/32.jpg'}
-                      alt="avatar"
-                      className="rounded-circle"
-                      style={{ width: 36, height: 36, objectFit: 'cover', marginRight: 8 }}
+                    <img 
+                      src={user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.FULL_NAME || user.full_name || 'User')}`} 
+                      alt="Profile"
+                      className="user-avatar me-2"
+                      onError={(e) => {
+                        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.FULL_NAME || user.full_name || 'User')}`;
+                      }}
                     />
-                    <span className="fw-semibold d-none d-md-inline">{user.FULL_NAME || user.full_name || 'User'}</span>
-                    <i className="bi bi-caret-down-fill ms-2"></i>
+                    <span className="d-none d-md-inline">{user.FULL_NAME || user.full_name || 'User'}</span>
                   </button>
-                  <ul
-                    className={`dropdown-menu dropdown-menu-end shadow${dropdownOpen ? ' show' : ''}`}
-                    style={{ minWidth: 210, marginTop: 8 }}
-                  >
+                  
+                  <ul className={`dropdown-menu dropdown-menu-end animated-dropdown ${dropdownOpen ? 'show' : ''}`}>
                     <li>
-                      <Link className="dropdown-item" to="/my-properties">
-                        <i className="bi bi-bar-chart me-2"></i> My Properties
+                      <Link className="dropdown-item dropdown-item-hover" to="/my-properties" onClick={() => setDropdownOpen(false)}>
+                        <i className="bi bi-house-gear me-2"></i>My Rooms
                       </Link>
                     </li>
                     <li>
-                      <Link className="dropdown-item" to="/messages">
-                        <i className="bi bi-chat-dots me-2"></i> Message
+                      <Link className="dropdown-item dropdown-item-hover" to="/messages" onClick={() => setDropdownOpen(false)}>
+                        <i className="bi bi-chat-dots me-2"></i>Messages
                       </Link>
                     </li>
                     <li>
-                      <Link className="dropdown-item" to="/favorites">
-                        <i className="bi bi-heart me-2"></i> My Favorites
+                      <Link className="dropdown-item dropdown-item-hover" to="/favorites" onClick={() => setDropdownOpen(false)}>
+                        <i className="bi bi-heart me-2"></i>Favorites
                       </Link>
                     </li>
                     <li>
-                      <Link className="dropdown-item" to="/reviews">
-                        <i className="bi bi-envelope-open me-2"></i> Reviews
+                      <Link className="dropdown-item dropdown-item-hover" to="/reviews" onClick={() => setDropdownOpen(false)}>
+                        <i className="bi bi-star me-2"></i>Reviews
                       </Link>
                     </li>
                     <li>
-                      <Link className="dropdown-item" to="/profile">
-                        <i className="bi bi-person me-2"></i> My Profile
+                      <Link className="dropdown-item dropdown-item-hover" to="/profile" onClick={() => setDropdownOpen(false)}>
+                        <i className="bi bi-person me-2"></i>Profile
                       </Link>
                     </li>
                     <li>
-                      <Link className="dropdown-item" to="/add-property">
-                        <i className="bi bi-plus-square me-2"></i> Add Property
+                      <Link className="dropdown-item dropdown-item-hover" to="/add-property" onClick={() => setDropdownOpen(false)}>
+                        <i className="bi bi-plus-square me-2"></i>Add Room
                       </Link>
                     </li>
+                    <li><hr className="dropdown-divider" /></li>
                     <li>
-                      <hr className="dropdown-divider" />
-                    </li>
-                    <li>
-                      <button className="dropdown-item text-danger" onClick={handleLogout}>
-                        <i className="bi bi-box-arrow-right me-2"></i> Logout
+                      <button className="dropdown-item dropdown-item-hover text-danger" onClick={handleLogout}>
+                        <i className="bi bi-box-arrow-right me-2"></i>Logout
                       </button>
                     </li>
                   </ul>
                 </li>
               </>
             ) : (
-              <>
-                <li className="nav-item">
-                  <button
-                    className="btn btn-warning ms-2"
-                    onClick={() => onAuthOpen('login')}
-                  >
-                    Register / Login
-                  </button>
-                </li>
-              </>
+              <li className="nav-item">
+                <button
+                  className="btn btn-primary btn-animated px-4"
+                  onClick={() => handleAuthOpen('login')}
+                >
+                  <i className="bi bi-person-plus me-2"></i>
+                  Join Now
+                </button>
+              </li>
             )}
           </ul>
         </div>
